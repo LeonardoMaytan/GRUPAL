@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Tickets de Salida</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f4; padding: 20px; margin: 0; }
+    .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: #333; }
+    .form-group { margin-bottom: 15px; }
+    label { font-weight: bold; display: block; margin-bottom: 6px; }
+    input[type="text"], textarea { width: 100%; padding: 8px; border: 1px solid #bbb; border-radius: 4px; }
+    button { padding: 10px 20px; border: none; border-radius: 5px; background-color: #28a745; color: white; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    button:hover { background-color: #218838; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    table th, table td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    .delete-btn { background-color: #dc3545; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    .delete-btn:hover { background-color: #c82333; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tickets de Salida</h1>
+
+    <div class="form-group">
+      <label for="dni">Buscar por DNI:</label>
+      <input type="text" id="dni" list="listaDNI" placeholder="Escribe DNI">
+      <datalist id="listaDNI"></datalist>
+    </div>
+
+    <div class="form-group">
+      <button type="button" onclick="agregarEstudiante()">
+        <i class="fa fa-plus"></i> Agregar estudiante
+      </button>
+    </div>
+
+    <table id="tablaEstudiantes">
+      <thead>
+        <tr>
+          <th>DNI</th><th>Nombre</th><th>Grado</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="form-group">
+      <label for="descripcion">Descripción común (opcional):</label>
+      <textarea id="descripcion" rows="3"></textarea>
+    </div>
+
+    <button type="button" onclick="generarPDFMasivo()">
+      <i class="fa fa-file-pdf"></i> Generar Tickets PDF
+    </button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    const estudiantes = [
+      { dni: "12345678", nombre: "Juan Pérez", grado: "5to A" },
+      { dni: "23456789", nombre: "María Torres", grado: "4to B" },
+      { dni: "34567890", nombre: "Luis Mendoza", grado: "3ro C" }
+    ];
+
+    const seleccionados = [];
+    let logo1 = "", logo2 = "";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const lista = document.getElementById("listaDNI");
+      estudiantes.forEach(est => {
+        const opt = document.createElement("option");
+        opt.value = est.dni;
+        opt.textContent = `${est.dni} - ${est.nombre}`;
+        lista.appendChild(opt);
+      });
+      cargarLogo("img/logo1.png", b64 => logo1 = b64);
+      cargarLogo("img/logo2.png", b64 => logo2 = b64);
+    });
+
+    function cargarLogo(url, callback) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = function() {
+        const canvas = document.createElement("canvas");
+        canvas.width = this.width;
+        canvas.height = this.height;
+        canvas.getContext("2d").drawImage(this, 0, 0);
+        callback(canvas.toDataURL("image/png"));
+      };
+      img.src = url;
+    }
+
+    function agregarEstudiante() {
+      const dni = document.getElementById("dni").value.trim();
+      const est = estudiantes.find(e => e.dni === dni);
+      if (!est) return alert("DNI no válido");
+      if (seleccionados.some(e => e.dni === dni)) return alert("Estudiante ya agregado");
+
+      seleccionados.push(est);
+      actualizarTabla();
+      document.getElementById("dni").value = "";
+    }
+
+    function eliminarEstudiante(dni) {
+      const idx = seleccionados.findIndex(e => e.dni === dni);
+      if (idx >= 0) {
+        seleccionados.splice(idx, 1);
+        actualizarTabla();
+      }
+    }
+
+    function actualizarTabla() {
+      const tbody = document.querySelector("#tablaEstudiantes tbody");
+      tbody.innerHTML = "";
+      seleccionados.forEach(est => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${est.dni}</td>
+          <td>${est.nombre}</td>
+          <td>${est.grado}</td>
+          <td><button class="delete-btn" onclick="eliminarEstudiante('${est.dni}')">Eliminar</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function generarPDFMasivo() {
+      if (seleccionados.length === 0) return alert("Agrega al menos un estudiante");
+
+      const descripcion = document.getElementById("descripcion").value || "Sin descripción";
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      seleccionados.forEach((est, i) => {
+        if (i > 0 && i % 2 === 0) doc.addPage();
+        const yOffset = (i % 2 === 0) ? 10 : 140;
+
+        const ticketID = generarID();
+        const fecha = new Date().toISOString().slice(0,10);
+        const hora = new Date().toTimeString().slice(0,5);
+
+        if (logo1) doc.addImage(logo1, 'PNG', 10, yOffset, 25, 25);
+        if (logo2) doc.addImage(logo2, 'PNG', 180, yOffset, 25, 25);
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("“AÑO DE LA RECUPERACIÓN Y CONSOLIDACIÓN", 105, yOffset + 4, null, null, "center");
+        doc.text("DE LA ECONOMÍA PERUANA”", 105, yOffset + 10, null, null, "center");
+        doc.text("Institución Educativa Integrada JOSÉ GÁLVEZ", 105, yOffset + 18, null, null, "center");
+        doc.setFontSize(11);
+        doc.text("¡HACIA UNA EDUCACIÓN COMPETITIVA Y DE CALIDAD!", 105, yOffset + 25, null, null, "center");
+
+        doc.setFontSize(13);
+        doc.text("TICKET DE SALIDA DE ESTUDIANTE", 105, yOffset + 35, null, null, "center");
+        doc.setLineWidth(0.5);
+        doc.line(10, yOffset + 38, 200, yOffset + 38);
+
+        const x = 15;
+        let y = yOffset + 45;
+        const ancho = 180;
+        doc.rect(x, y - 5, ancho, 75);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Número de Ticket: ${ticketID}`, x+5, y); y += 7;
+        doc.text(`DNI del Estudiante: ${est.dni}`, x+5, y); y += 7;
+        doc.text(`Apellido y Nombre: ${est.nombre}`, x+5, y); y += 7;
+        doc.text(`Grado y Sección: ${est.grado}`, x+5, y); y += 7;
+        doc.text(`Fecha de Salida: ${fecha}`, x+5, y); y += 7;
+        doc.text(`Hora de Salida: ${hora}`, x+5, y); y += 7;
+
+        const textoDesc = doc.splitTextToSize(`Descripción: ${descripcion}`, ancho - 10);
+        doc.text(textoDesc, x+5, y); y += textoDesc.length * 6;
+
+        y += 10;
+        doc.text("_______________________________", x+5, y);
+        doc.text("Firma del Apoderado", x+15, y+5);
+        doc.text("_______________________________", x+5+100, y);
+        doc.text("Responsable Institucional", x+110, y+5);
+      });
+
+      doc.save("tickets_salida.pdf");
+    }
+
+    function generarID() {
+      const now = new Date();
+      const fecha = now.toISOString().slice(0,10).replace(/-/g,'');
+      const hora = now.toTimeString().slice(0,8).replace(/:/g,'');
+      const random = Math.floor(Math.random()*1000).toString().padStart(3,'0');
+      return `TICKET-${fecha}-${hora}-${random}`;
+    }
+  </script>
+</body>
+</html>
