@@ -112,18 +112,61 @@
       background-color: #c82333;
     }
 
-    /* === LAYOUT FLEXIBLE === */
-    .row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+/* === LAYOUT FLEXIBLE MEJORADO === */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
 
-    .col-md-6,
-    .col-md-3 {
-      flex: 1;
-      min-width: 150px;
-    }
+/* Ajuste de columnas específicas (si quieres mantener tamaños relativos) */
+.col-md-6 {
+  grid-column: span 1;
+}
+
+.col-md-3 {
+  grid-column: span 1;
+}
+
+/* Campos del formulario */
+.form-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-size: 15px;
+  transition: all 0.2s ease-in-out;
+}
+
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
+  outline: none;
+}
+
+/* === RESPONSIVE DESIGN === */
+@media (max-width: 768px) {
+  .row {
+    grid-template-columns: 1fr; /* Cada campo ocupa toda la fila */
+  }
+
+  .form-control {
+    font-size: 14px;
+    padding: 9px 10px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+}
+
 
     /* === FOOTER === */
     footer {
